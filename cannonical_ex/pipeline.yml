@@ -43,7 +43,8 @@ jobs:
           image_resource:
             type: docker-image
             source:
-              repository: jalbert/dcind:01
+              repository: jalbert/dcind
+              tag: '0.1'
           inputs:
             - name: code
             - name: ci
