@@ -1,0 +1,20 @@
+version: '3.7'
+
+services:
+   
+  redis:
+    image: "redis:6.2-alpine"
+    hostname: "redis"
+
+  tests:
+    image: "elixir:1.11"
+    container_name: mytests
+    depends_on:
+      - redis
+    command: "/usr/src/ci/run-tests.sh"
+    environment:
+      REDIS_PORT: 6379
+      REDIS_HOST: redis
+    volumes:
+      - "${PWD-.}/code:/usr/src/code"
+      - "${PWD-.}/ci/cannonical_ex:/usr/src/ci"

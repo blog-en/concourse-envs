@@ -1,0 +1,74 @@
+---
+resources:
+  - name: code
+    type: git
+    source:
+      uri: https://github.com/blog-en/cannonical_ex.git
+
+  - name: ci
+    type: git
+    source:
+      uri: https://github.com/blog-en/concourse-envs.git
+
+  - name: redis
+    type: docker-image
+    source:
+      repository: redis
+      tag: 6.2-alpine
+
+  - name: elixir
+    type: docker-image
+    source:
+      repository: elixir
+      tag: 1.11
+
+jobs:
+  - name: integration
+    plan:
+      - in_parallel:
+        - get: code
+          params: {depth: 1}
+          trigger: true
+        - get: ci
+          params: {depth: 1}
+          trigger: true
+        - get: redis
+          params: {save: true}
+        - get: elixir
+          params: {save: true}
+      - task: integration-tests
+        privileged: true
+        config:
+          platform: linux
+          image_resource:
+            type: docker-image
+            source:
+              repository: jalbert/dcind:01
+          inputs:
+            - name: code
+            - name: ci
+            - name: redis
+            - name: elixir
+          run:
+            path: bash
+            args:
+              - -exc
+              - |
+                source /docker-lib.sh
+                start_docker
+
+                # Strictly speaking, preloading of Docker images is not required.
+                # However, you might want to do this for a couple of reasons:
+                # - If the image comes from a private repository, it is much easier to let Concourse pull it,
+                #   and then pass it through to the task.
+                # - When the image is passed to the task, Concourse can often get the image from its cache.
+                docker load -i redis/image
+                docker tag "$(cat redis/image-id)" "$(cat redis/repository):$(cat redis/tag)"
+
+                docker load -i elixir/image
+                docker tag "$(cat elixir/image-id)" "$(cat elixir/repository):$(cat elixir/tag)"
+
+                # This is just to visually check in the log that images have been loaded successfully.
+                # docker images
+
+                docker-compose -f ci/cannonical_ex/docker-compose.yml run tests
